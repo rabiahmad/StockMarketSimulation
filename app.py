@@ -126,7 +126,5 @@ sim = PortfolioSimulator(
     investment_amount=investment_amount,
 )
 
-simulate_button = st.button(label="Run simulation")
-
-if simulate_button:
+if st.button(label="Run simulation"):
     sim.simulate()
