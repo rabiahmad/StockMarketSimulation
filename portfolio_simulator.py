@@ -5,7 +5,7 @@ import yfinance as yf
 import altair as alt
 import pandas as pd
 import plotly.express as px
-from utils import process_ticker_data
+from utils import process_ticker_data, process_stock_data_pipeline
 
 
 class PortfolioSimulator:
@@ -29,39 +29,90 @@ class PortfolioSimulator:
             time.sleep(5)
             st.balloons()
 
-    def benchmark_portfolio(self):
-        pass
+    def benchmark_portfolio(self, benchmark_ticker_label="SPY"):
+        # Get the benchmarking data
+        benchmark_data = process_stock_data_pipeline(benchmark_ticker_label)
+
+        portfolio_data_modified = {key: value for key, value in self.portfolio.items()}
+
+        # Trimming the portfolio timeseries data to have the same periods
+        ticker_data_lengths = [
+            min(ticker_obj.data["Date"])
+            for ticker_obj in portfolio_data_modified.values()
+        ]
+        start_date = max(ticker_data_lengths)
+
+        for ticker, ticker_obj in portfolio_data_modified.items():
+            portfolio_data_modified[ticker].data = ticker_obj.data.loc[
+                ticker_obj.data["Date"] >= start_date
+            ]
+
+        cum_returns = []
+        for ticker_label, ticker_obj in portfolio_data_modified.items():
+            # Get all ticker data and create new cumulative returns by using sum product
+            # of weights and ticker cumulative returns
+            data = ticker_obj.data["CumulReturns"].fillna(0) * float(ticker_obj.weight)
+
+            cum_returns.append(data.values)
+
+        adjusted_cumul_returns = [sum(x) for x in zip(*cum_returns)]
+
+        df = pd.DataFrame(adjusted_cumul_returns)
+        df["Symbol"] = "Portfolio"
+        df["Date"] = benchmark_data["Date"]
+
+        data_len, bm_len = len(adjusted_cumul_returns), len(benchmark_data)
+
+        if bm_len > data_len:
+            start_index = bm_len - data_len
+            benchmark_data = benchmark_data.iloc[start_index:, :]
+        else:
+            start_index = data_len - bm_len
+            adjusted_cumul_returns = adjusted_cumul_returns.iloc[start_index:, :]
+
+        # Re-calculate the cumulative returns and normalise both timeseries to have the same starting value, 1
+
+        benchmark_data = process_ticker_data(benchmark_data, normalise=True)
+
+        adjusted_cumul_returns_df = pd.DataFrame(
+            adjusted_cumul_returns, columns=["CumulReturns"]
+        )
+
+        adjusted_cumul_returns_df["Date"] = benchmark_data["Date"]
+        adjusted_cumul_returns_df["Symbol"] = "Portfolio"
+
+        # Normalise the portfolio returns data to start at 1
+        adjusted_cumul_returns_df["CumulReturns"] = (
+            adjusted_cumul_returns_df["CumulReturns"]
+            / adjusted_cumul_returns_df["CumulReturns"].iloc[1]
+        ).iloc[
+            1:,
+        ]
+
+        stock_data = pd.concat([benchmark_data, adjusted_cumul_returns_df])
+
+        fig = px.line(stock_data, x="Date", y="CumulReturns", color="Symbol")
+
+        st.plotly_chart(fig)
 
     @staticmethod
     def benchmark(ticker_label, benchmark_ticker_label="SPY"):
         """Benchmark the historic returns for the portfolio items against another stock."""
 
         # Get the benchmarking data
-        benchmark_ticker = yf.Ticker(benchmark_ticker_label)
+        benchmark_data = process_stock_data_pipeline(benchmark_ticker_label)
 
-        benchmark_data = benchmark_ticker.history(period="max", interval="1d")
-        benchmark_data = process_ticker_data(benchmark_data)
-        benchmark_data["Symbol"] = benchmark_ticker_label
-
-        st.write(ticker_label)
-        ticker = yf.Ticker(ticker_label)
-        data = ticker.history(period="max", interval="1d")
-        data = process_ticker_data(data)
-        data["Symbol"] = ticker_label
+        data = process_stock_data_pipeline(ticker_label)
 
         # Truncate the benchmark data to the same size as the chosen ticker data and
         # recalculate cumulative returns for the same period
         start_date = data["Date"].min()
         data_len, bm_len = len(data), len(benchmark_data)
-        st.write(data_len)
-        st.write(bm_len)
 
         if bm_len > data_len:
-            st.write("#1")
             start_index = bm_len - data_len
             benchmark_data = benchmark_data.iloc[start_index:, :]
         else:
-            st.write("#2")
             start_index = data_len - bm_len
             data = data.iloc[start_index:, :]
 

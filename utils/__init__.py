@@ -1,1 +1,2 @@
 from .process_ticker_data import process_ticker_data
+from .process_stock_data_pipeline import process_stock_data_pipeline

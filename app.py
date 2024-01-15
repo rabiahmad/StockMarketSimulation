@@ -4,18 +4,18 @@ import altair as alt
 import matplotlib.pyplot as plt
 from portfolio_item import PortfolioItem
 from portfolio_simulator import PortfolioSimulator
+import json
+from utils import portfolio_weight_validator
 
 st.title("Stock market simulator")
 
 # User input for tickers
+default_portfolio_string = "HLAL: 0.8, ISUS.L: 0.1, ISWD.L: 0.1"
+
 portfolio_tickers = st.text_area(
-    label="Enter tickers separated by comma. e.g. AAPL, MSFT",
-    value="ISWD.L, HLAL",
+    label="Enter portfolio ticker: weights, separated by comma. e.g. AAPL: 0.8, MSFT: 0.2",
+    value=default_portfolio_string,
 )
-
-# User input for chart type. TODO add chart functionality later (low priority)
-chart_type = st.selectbox(label="Chart type", options=["Line", "Area", "Candlestick"])
-
 
 # Split the list of tickers out into a list
 portfolio_tickers_list = portfolio_tickers.split(", ")
@@ -24,91 +24,37 @@ portfolio_tickers_list = portfolio_tickers.split(", ")
 # Create the portfolio by instantiating PortfolioItems for each ticker whilst fetching required stock market
 # data and calculating daily returns using fetch_data method
 portfolio = {}
-for ticker_label in portfolio_tickers_list:
-    ticker = PortfolioItem(ticker_label, 1 / len(portfolio_tickers_list))
-    ticker.show()
+for entry in portfolio_tickers_list:
+    ticker_label = entry.split(": ")[0]
+    weight = entry.split(": ")[1]
+    ticker = PortfolioItem(ticker_label, weight)
+    # ticker.show()
     ticker.fetch_data()
     portfolio[ticker_label] = ticker
 
 
-# if chart_type == "Line":
-#     line_chart = (
-#         alt.Chart(portfolio["ISWD.L"].history)
-#         .mark_line()
-#         .encode(x="Date:T", y="Close:Q")
-#     )
-#     line_chart
-# elif chart_type == "Area":
-#     area_chart = (
-#         alt.Chart(portfolio["ISWD.L"].history)
-#         .mark_area(
-#             line={"color": "darkgreen"},
-#             color=alt.Gradient(
-#                 gradient="linear",
-#                 stops=[
-#                     alt.GradientStop(color="white", offset=0),
-#                     alt.GradientStop(color="darkgreen", offset=1),
-#                 ],
-#                 x1=1,
-#                 x2=1,
-#                 y1=1,
-#                 y2=0,
-#             ),
-#         )
-#         .encode(alt.X("Date:T"), alt.Y("Close:Q"))
-#     )
-#     area_chart
-# elif chart_type == "Candlestick":
-#     ## Base
-#     base = alt.Chart(portfolio["ISWD.L"].history).encode(
-#         x=alt.X(
-#             "Date:T", axis=alt.Axis(format="%d/%m/%y", labelAngle=-45, title="Date")
-#         ),
-#         color=alt.condition(
-#             "datum.Open <= datum.Close", alt.value("lawngreen"), alt.value("tomato")
-#         ),
-#     )
+if not portfolio_weight_validator.validate_weights(portfolio):
+    st.error("Please ensure portfolio weights add up to 1")
 
-#     ## Lines
-#     rule = base.mark_rule().encode(
-#         y=alt.Y("Low:Q", title="Price", scale=alt.Scale(zero=False)),
-#         y2=alt.Y2("High:Q"),
-#     )
+with st.expander(label="Additional inputs #TODO"):
+    # User input to define the number of years to forecast
+    forecast_years = st.text_input(label="Forecast years", value=5)
 
-#     ## Candles
-#     bar = (
-#         base.mark_bar(width=10.0)
-#         .encode(
-#             y=alt.Y("Open:Q"),
-#             y2=alt.Y2("Close:Q"),
-#             tooltip=["Date", "Open", "High", "Low", "Close"],
-#         )
-#         .properties(width=600, height=300, title="Ticker historic data")
-#     )
+    # Investment strategy
+    investment_stategy = st.selectbox(
+        label="Investment strategy",
+        options=[
+            "Lump sum one off investment",
+            "Yearly investment",
+            "Quarterly investment",
+            "Monthly investment",
+            "Daily investment",
+        ],
+    )
 
-#     candlestick = rule + bar
+    investment_amount = st.text_input(label="Investment amount", value=1000)
 
-#     candlestick
-
-
-# User input to define the number of years to forecast
-forecast_years = st.text_input(label="Forecast years", value=5)
-
-# Investment strategy
-investment_stategy = st.selectbox(
-    label="Investment strategy",
-    options=[
-        "Lump sum one off investment",
-        "Yearly investment",
-        "Quarterly investment",
-        "Monthly investment",
-        "Daily investment",
-    ],
-)
-
-investment_amount = st.text_input(label="Investment amount", value=1000)
-
-reinvest_returns = st.selectbox(label="Re-invest profits", options=["Yes", "No"])
+    reinvest_returns = st.selectbox(label="Re-invest profits", options=["Yes", "No"])
 
 # Simulation methodology:
 # 1. Starting point for simulation is X years ago where X is the forecast years
@@ -127,7 +73,9 @@ sim = PortfolioSimulator(
 )
 
 
-if st.button(label="Run simulation"):
-    # sim.simulate()
-    for ticker in portfolio_tickers_list:
+if st.button(label="Run portfolio benchmark"):
+    sim.benchmark_portfolio()
+
+if st.button(label="Run individual benchmarks"):
+    for ticker in portfolio.keys():
         sim.benchmark(ticker_label=ticker)
