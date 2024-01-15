@@ -1,4 +1,5 @@
 import streamlit as st
+import yfinance as yf
 from portfolio_item import PortfolioItem
 from portfolio_simulator import PortfolioSimulator
 from utils import portfolio_weight_validator
