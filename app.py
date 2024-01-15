@@ -10,7 +10,7 @@ st.title("Stock market simulator")
 # User input for tickers
 portfolio_tickers = st.text_area(
     label="Enter tickers separated by comma. e.g. AAPL, MSFT",
-    value="ISWD.L, HIUS.L, ISUS.L",
+    value="ISWD.L, HLAL",
 )
 
 # User input for chart type. TODO add chart functionality later (low priority)
@@ -126,5 +126,8 @@ sim = PortfolioSimulator(
     investment_amount=investment_amount,
 )
 
+
 if st.button(label="Run simulation"):
-    sim.simulate()
+    # sim.simulate()
+    for ticker in portfolio_tickers_list:
+        sim.benchmark(ticker_label=ticker)
