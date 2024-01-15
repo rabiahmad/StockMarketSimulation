@@ -1,10 +1,6 @@
 import streamlit as st
-import yfinance as yf
-import altair as alt
-import matplotlib.pyplot as plt
 from portfolio_item import PortfolioItem
 from portfolio_simulator import PortfolioSimulator
-import json
 from utils import portfolio_weight_validator
 
 st.title("Stock market simulator")
